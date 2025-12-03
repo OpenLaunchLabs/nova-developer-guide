@@ -545,6 +545,7 @@ async def main(shot_interval: float, hostname: str):
     try:
         await asyncio.gather(shot_task, status_task)
     except asyncio.CancelledError:
+        # Task cancellation is expected during shutdown; ignore and proceed to cleanup.
         pass
     finally:
         print("\nShutting down...")
