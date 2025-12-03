@@ -144,7 +144,8 @@ class ClientManager:
                 try:
                     writer.write(message.encode())
                     await writer.drain()
-                except Exception:
+                except Exception as e:
+                    print(f"[TCP] Error broadcasting to {writer.get_extra_info('peername')}: {e}")
                     disconnected.append(writer)
             for writer in disconnected:
                 self.tcp_clients.discard(writer)
