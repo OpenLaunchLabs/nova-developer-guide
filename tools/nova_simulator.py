@@ -568,13 +568,23 @@ def validate_nova_id(value):
     return value.lower()
 
 
+def validate_interval(value):
+    """Validate that interval is a positive float."""
+    try:
+        fval = float(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"Interval '{value}' is not a valid float.")
+    if fval <= 0:
+        raise argparse.ArgumentTypeError("Interval must be a positive number.")
+    return fval
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Nova Golf Shot Publisher (Simulator) - simulates a Nova launch monitor"
     )
     parser.add_argument(
         "-i", "--interval",
-        type=float,
+        type=validate_interval,
         default=SHOT_INTERVAL_SECONDS,
         help=f"Interval between shots in seconds (default: {SHOT_INTERVAL_SECONDS})"
     )
