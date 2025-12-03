@@ -85,7 +85,11 @@ def extract_json_objects(buffer):
         line, buffer = buffer.split("\n", 1)
         line = line.strip()
         if line:
-            objects.append(line)
+            try:
+                json.loads(line)  # Validate JSON
+                objects.append(line)
+            except json.JSONDecodeError:
+                pass  # Skip invalid JSON
 
     # For remaining buffer, try to parse complete JSON objects
     buffer = buffer.lstrip()
