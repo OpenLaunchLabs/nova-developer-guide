@@ -383,7 +383,8 @@ class SSDPResponder:
         try:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
         except (AttributeError, OSError):
-            # SO_REUSEPORT may not be available on all platforms; safe to ignore if setting fails.
+            # SO_REUSEPORT allows multiple sockets to bind to the same port.
+            # Not available on all platforms (e.g., Windows), but not required for basic functionality.
             pass
 
         # Bind to SSDP port on all interfaces
