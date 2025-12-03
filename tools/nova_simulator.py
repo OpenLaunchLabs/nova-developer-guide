@@ -391,7 +391,7 @@ class SSDPResponder:
         # Bind to SSDP port on all interfaces
         sock.bind(("", SSDP_PORT))
 
-        # Join multicast group on all interfaces
+        # Join multicast group on all interfaces (0.0.0.0)
         mreq = struct.pack("4s4s",
                           socket.inet_aton(SSDP_MULTICAST_ADDR),
                           socket.inet_aton("0.0.0.0"))
