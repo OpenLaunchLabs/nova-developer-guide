@@ -425,7 +425,7 @@ async def shot_broadcast_task(
         await asyncio.sleep(interval)
 
         shot = shot_generator.generate_shot()
-        tcp_count, ws_count = client_manager.client_count
+        tcp_count, ws_count = await client_manager.client_count()
 
         print(
             f"\n[Shot #{shot['shot_number']}] "
@@ -461,7 +461,7 @@ async def status_broadcast_task(
     while True:
         await asyncio.sleep(interval)
 
-        _, ws_count = client_manager.client_count
+        _, ws_count = await client_manager.client_count()
         if ws_count > 0:
             uptime = int(time.time() - start_time)
             status_msg = json.dumps({
