@@ -618,4 +618,5 @@ if __name__ == "__main__":
     try:
         asyncio.run(main(shot_interval=args.interval, hostname=hostname))
     except KeyboardInterrupt:
+        # Allow graceful exit on Ctrl+C without traceback
         pass
