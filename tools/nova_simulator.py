@@ -553,6 +553,8 @@ async def main(shot_interval: float, hostname: str):
         ssdp_responder.stop()
         shot_task.cancel()
         status_task.cancel()
+        # Await cancelled tasks to ensure proper cleanup
+        await asyncio.gather(shot_task, status_task, return_exceptions=True)
         await mdns_advertiser.stop()
         await tcp_server.stop()
         await ws_server.stop()
