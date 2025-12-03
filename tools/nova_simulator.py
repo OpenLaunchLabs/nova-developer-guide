@@ -232,6 +232,7 @@ class WebSocketServer:
                 # Ignore any messages (receive-only API)
                 pass
         except websockets.ConnectionClosed:
+            # Client disconnected normally; no action needed.
             pass
         except Exception as e:
             print(f"[WS] Client error {addr}: {e}")
