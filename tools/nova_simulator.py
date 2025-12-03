@@ -16,8 +16,10 @@ import random
 import socket
 import struct
 import time
-import uuid
 from typing import Set
+import websockets
+from zeroconf import ServiceInfo
+from zeroconf.asyncio import AsyncZeroconf
 
 WS_PORT = 2920
 TCP_PORT = 2921
@@ -221,8 +223,6 @@ class WebSocketServer:
         self.server = None
 
     async def handle_client(self, websocket):
-        import websockets
-
         addr = websocket.remote_address
         print(f"[WS] Client connected: {addr}")
         await self.client_manager.add_ws_client(websocket)
@@ -240,8 +240,6 @@ class WebSocketServer:
             await self.client_manager.remove_ws_client(websocket)
 
     async def start(self):
-        import websockets
-
         # Accept on any interface (0.0.0.0)
         self.server = await websockets.serve(self.handle_client, "0.0.0.0", self.port)
         print(f"[WS] Server listening on port {self.port}")
@@ -265,9 +263,6 @@ class MDNSAdvertiser:
         self.services = []
 
     async def start(self):
-        from zeroconf import ServiceInfo
-        from zeroconf.asyncio import AsyncZeroconf
-
         self.aiozc = AsyncZeroconf()
         ip_bytes = socket.inet_aton(self.local_ip)
 
