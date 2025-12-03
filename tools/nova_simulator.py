@@ -161,9 +161,9 @@ class ClientManager:
             for ws in disconnected:
                 self.ws_clients.discard(ws)
 
-    @property
-    def client_count(self) -> tuple:
-        return len(self.tcp_clients), len(self.ws_clients)
+    async def client_count(self) -> tuple:
+        async with self._lock:
+            return len(self.tcp_clients), len(self.ws_clients)
 
 
 # =============================================================================
