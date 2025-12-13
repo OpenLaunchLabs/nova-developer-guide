@@ -71,6 +71,39 @@ def discover_service(timeout=5.0):
     return None, None
 
 
+def extract_json_objects(buffer):
+    """Extract complete JSON objects from buffer.
+
+    Supports both newline-terminated messages and JSON boundary detection.
+    Uses json.JSONDecoder.raw_decode() for proper JSON parsing.
+    """
+    objects = []
+    decoder = json.JSONDecoder()
+
+    # First, try newline-delimited parsing (fast path)
+    while "\n" in buffer:
+        line, buffer = buffer.split("\n", 1)
+        line = line.strip()
+        if line:
+            try:
+                json.loads(line)  # Validate JSON
+                objects.append(line)
+            except json.JSONDecodeError:
+                pass  # Skip invalid JSON
+
+    # For remaining buffer, try to parse complete JSON objects
+    buffer = buffer.lstrip()
+    while buffer:
+        try:
+            obj, end_idx = decoder.raw_decode(buffer)
+            objects.append(json.dumps(obj))
+            buffer = buffer[end_idx:].lstrip()
+        except json.JSONDecodeError:
+            break  # Incomplete JSON, wait for more data
+
+    return objects, buffer
+
+
 def connect_and_listen(host, port):
     """Connect to OpenAPI TCP server and print shots."""
     print(f"Connecting to {host}:{port}...")
@@ -87,17 +120,16 @@ def connect_and_listen(host, port):
                 break
 
             buffer += data
-            while "\n" in buffer:
-                line, buffer = buffer.split("\n", 1)
-                if line.strip():
-                    shot = json.loads(line)
-                    print(f"Shot #{shot['ShotNumber']}:")
-                    print(f"  Speed: {shot['BallData']['Speed']:.1f} mph")
-                    print(f"  VLA: {shot['BallData']['VLA']:.1f}°")
-                    print(f"  HLA: {shot['BallData']['HLA']:.1f}°")
-                    print(f"  Spin: {shot['BallData']['TotalSpin']:.0f} rpm")
-                    print(f"  Raw: {line}")
-                    print()
+            objects, buffer = extract_json_objects(buffer)
+            for obj_str in objects:
+                shot = json.loads(obj_str)
+                print(f"Shot #{shot['ShotNumber']}:")
+                print(f"  Speed: {shot['BallData']['Speed']:.1f} mph")
+                print(f"  VLA: {shot['BallData']['VLA']:.1f}°")
+                print(f"  HLA: {shot['BallData']['HLA']:.1f}°")
+                print(f"  Spin: {shot['BallData']['TotalSpin']:.0f} rpm")
+                print(f"  Raw: {obj_str}")
+                print()
     except KeyboardInterrupt:
         print("\nDisconnected")
     finally:
