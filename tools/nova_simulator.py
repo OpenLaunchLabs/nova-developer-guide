@@ -51,11 +51,11 @@ class GolfShotGenerator:
 
         max_vla = 55 if ball_speed_mph < 80 else 30
         vla = random.uniform(-10, max_vla)  # Vertical launch angle (degrees)
-        hla = random.gauss(-8, 8)  # Horizontal launch angle (degrees)
+        hla = random.gauss(0, 8)  # Horizontal launch angle (degrees)
 
         max_spin = 13000 if ball_speed_mph < 100 else 5000
         total_spin = random.uniform(1000, max_spin)  # rpm
-        spin_axis = random.gauss(-30, 30)  # degrees
+        spin_axis = random.gauss(0, 15)  # degrees
 
         return {
             "shot_number": self.shot_number,
