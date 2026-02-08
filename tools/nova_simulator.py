@@ -74,12 +74,20 @@ class GolfShotGenerator:
             # but I try to do so to make it easier for users to parse.
             json.dumps(
                 {
+                    "DeviceID": "OpenLaunch NOVA v1.0",
+                    "Units": "Yards",
                     "ShotNumber": shot["shot_number"],
+                    "APIversion": "1",
                     "BallData": {
                         "Speed": shot["ball_speed_mph"],
-                        "VLA": shot["vla"],
-                        "HLA": shot["hla"],
+                        "SpinAxis": shot["spin_axis"],
                         "TotalSpin": shot["total_spin"],
+                        "HLA": shot["hla"],
+                        "VLA": shot["vla"],
+                    },
+                    "ShotDataOptions": {
+                        "ContainsBallData": True,
+                        "ContainsClubData": False,
                     },
                 }
             )
@@ -91,6 +99,7 @@ class GolfShotGenerator:
         return json.dumps(
             {
                 "type": "shot",
+                "timestamp_ns": time.time_ns(),
                 "shot_number": shot["shot_number"],
                 "ball_speed_meters_per_second": shot["ball_speed_mps"],
                 "vertical_launch_angle_degrees": shot["vla"],
