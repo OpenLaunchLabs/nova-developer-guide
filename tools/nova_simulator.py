@@ -3,8 +3,7 @@
 Nova Golf Shot Publisher (Simulator)
 
 Simulates a Nova launch monitor by publishing golf shots every 20 seconds.
-Implements both discovery mechanisms (mDNS and SSDP) and both socket types
-(TCP/OpenAPI and WebSocket).
+Implements mDNS discovery and both socket types (TCP/OpenAPI and WebSocket).
 
 Dependencies: pip install zeroconf websockets
 """
@@ -14,7 +13,6 @@ import asyncio
 import json
 import random
 import socket
-import struct
 import time
 from typing import Set
 import websockets
@@ -27,16 +25,10 @@ TCP_PORT = 2921
 MDNS_OPENAPI_TYPE = "_openapi-nova._tcp.local."
 MDNS_WS_TYPE = "_openlaunch-ws._tcp.local."
 
-SSDP_MULTICAST_ADDR = "239.255.255.250"
-SSDP_PORT = 1900
-SSDP_OPENAPI_URN = "urn:openlaunch:service:openapi:1"
-SSDP_WS_URN = "urn:openlaunch:service:websocket:1"
-
 SHOT_INTERVAL_SECONDS = 20
 STATUS_INTERVAL_SECONDS = 5
-DEFAULT_HOSTNAME = "openlaunch-novaxsim"
 VERSION = "simulator-2025-Dec-02"
-FRIENDLY_NAME = "NOVA by Open Launch (Simulator)"
+SERIAL = "B0100SIM"
 MANUFACTURER = "Open Launch"
 MODEL = "NOVA"
 
@@ -258,9 +250,9 @@ class WebSocketServer:
 class MDNSAdvertiser:
     """Advertises services via mDNS using zeroconf (async API)."""
 
-    def __init__(self, local_ip: str, hostname: str):
+    def __init__(self, local_ip: str, serial: str):
         self.local_ip = local_ip
-        self.hostname = hostname
+        self.serial = serial
         self.aiozc = None
         self.services = []
 
@@ -268,14 +260,18 @@ class MDNSAdvertiser:
         self.aiozc = AsyncZeroconf()
         ip_bytes = socket.inet_aton(self.local_ip)
 
-        # Use friendly name for mDNS instance name (like real hardware)
-        instance_name = FRIENDLY_NAME
+        # Instance name matches live hardware format: "NOVA B0100214"
+        instance_name = f"NOVA {self.serial}"
+
+        # mDNS server field uses actual machine hostname so the device is connectable
+        machine_hostname = socket.gethostname().split(".")[0]
 
         # TXT record properties matching real hardware format
         txt_properties = {
             "model": MODEL,
             "manufacturer": MANUFACTURER,
-            "hostname": self.hostname,
+            "serial": self.serial,
+            "hostname": machine_hostname,
             "version": VERSION,
         }
 
@@ -286,7 +282,7 @@ class MDNSAdvertiser:
             addresses=[ip_bytes],
             port=TCP_PORT,
             properties=txt_properties,
-            server=f"{self.hostname}.local.",
+            server=f"{machine_hostname}.local.",
         )
         await self.aiozc.async_register_service(openapi_info)
         self.services.append(openapi_info)
@@ -299,7 +295,7 @@ class MDNSAdvertiser:
             addresses=[ip_bytes],
             port=WS_PORT,
             properties=txt_properties,
-            server=f"{self.hostname}.local.",
+            server=f"{machine_hostname}.local.",
         )
         await self.aiozc.async_register_service(ws_info)
         self.services.append(ws_info)
@@ -311,103 +307,6 @@ class MDNSAdvertiser:
                 await self.aiozc.async_unregister_service(service)
             await self.aiozc.async_close()
             print("[mDNS] Services unregistered")
-
-
-# =============================================================================
-# SSDP Responder
-# =============================================================================
-class SSDPProtocol(asyncio.DatagramProtocol):
-    """Asyncio protocol for handling SSDP multicast."""
-
-    def __init__(self, local_ip: str, hostname: str, uuid_suffix: str):
-        self.local_ip = local_ip
-        self.hostname = hostname
-        self.uuid_suffix = uuid_suffix
-        self.transport = None
-
-    def connection_made(self, transport):
-        self.transport = transport
-
-    def datagram_received(self, data: bytes, addr: tuple):
-        try:
-            message = data.decode("utf-8")
-            if "M-SEARCH" not in message:
-                return
-
-            # Check which service is being searched for
-            if SSDP_OPENAPI_URN in message or "ssdp:all" in message:
-                self.send_response(addr, SSDP_OPENAPI_URN, f"http://{self.local_ip}:{TCP_PORT}/")
-                print(f"[SSDP] Responded to M-SEARCH for OpenAPI from {addr}")
-
-            if SSDP_WS_URN in message or "ssdp:all" in message:
-                self.send_response(addr, SSDP_WS_URN, f"http://{self.local_ip}:{WS_PORT}/")
-                print(f"[SSDP] Responded to M-SEARCH for WebSocket from {addr}")
-
-        except Exception as e:
-            print(f"[SSDP] Error handling request: {e}")
-
-    def send_response(self, addr: tuple, st: str, location: str):
-        response = (
-            "HTTP/1.1 200 OK\r\n"
-            "CACHE-CONTROL: max-age=1800\r\n"
-            f"LOCATION: {location}\r\n"
-            f"SERVER: OpenLaunch/{VERSION}\r\n"
-            f"ST: {st}\r\n"
-            f"USN: uuid:openlaunch-nova-{self.uuid_suffix}::{st}\r\n"
-            f"X-FRIENDLY-NAME: {FRIENDLY_NAME}\r\n"
-            f"X-HOSTNAME: {self.hostname}\r\n"
-            f"X-MANUFACTURER: {MANUFACTURER}\r\n"
-            f"X-MODEL: {MODEL}\r\n"
-            f"X-VERSION: {VERSION}\r\n"
-            "\r\n"
-        )
-        self.transport.sendto(response.encode(), addr)
-
-
-class SSDPResponder:
-    """Responds to SSDP M-SEARCH requests."""
-
-    def __init__(self, local_ip: str, hostname: str):
-        self.local_ip = local_ip
-        self.hostname = hostname
-        # Generate a UUID suffix from the IP address (like real hardware)
-        self.uuid_suffix = ''.join(f'{int(x):02x}' for x in local_ip.split('.'))
-        self.transport = None
-        self.protocol = None
-
-    async def start(self):
-        loop = asyncio.get_event_loop()
-
-        # Create multicast socket
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        except (AttributeError, OSError):
-            # SO_REUSEPORT allows multiple sockets to bind to the same port.
-            # Not available on all platforms (e.g., Windows), but not required for basic functionality.
-            pass
-
-        # Bind to SSDP port on all interfaces
-        sock.bind(("", SSDP_PORT))
-
-        # Join multicast group on all interfaces (0.0.0.0)
-        mreq = struct.pack("4s4s",
-                          socket.inet_aton(SSDP_MULTICAST_ADDR),
-                          socket.inet_aton("0.0.0.0"))
-        sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
-
-        # Create asyncio datagram endpoint from existing socket
-        self.transport, self.protocol = await loop.create_datagram_endpoint(
-            lambda: SSDPProtocol(self.local_ip, self.hostname, self.uuid_suffix),
-            sock=sock
-        )
-
-        print(f"[SSDP] Listening on {SSDP_MULTICAST_ADDR}:{SSDP_PORT}")
-
-    def stop(self):
-        if self.transport:
-            self.transport.close()
 
 
 # =============================================================================
@@ -493,7 +392,7 @@ def get_local_ip() -> str:
 # =============================================================================
 # Main
 # =============================================================================
-async def main(shot_interval: float, hostname: str):
+async def main(shot_interval: float, serial: str):
     """Main entry point - starts all services."""
     print("=" * 60)
     print("Nova Golf Shot Publisher (Simulator)")
@@ -501,7 +400,7 @@ async def main(shot_interval: float, hostname: str):
 
     local_ip = get_local_ip()
     print(f"Local IP: {local_ip}")
-    print(f"Hostname: {hostname}")
+    print(f"Serial: {serial}")
     print(f"Shot interval: {shot_interval}s")
     print()
 
@@ -511,8 +410,7 @@ async def main(shot_interval: float, hostname: str):
 
     tcp_server = TCPServer(client_manager)
     ws_server = WebSocketServer(client_manager)
-    mdns_advertiser = MDNSAdvertiser(local_ip, hostname)
-    ssdp_responder = SSDPResponder(local_ip, hostname)
+    mdns_advertiser = MDNSAdvertiser(local_ip, serial)
 
     # Start mDNS
     await mdns_advertiser.start()
@@ -520,9 +418,6 @@ async def main(shot_interval: float, hostname: str):
     # Start servers
     await tcp_server.start()
     await ws_server.start()
-
-    # Start SSDP responder (uses asyncio protocol, no task needed)
-    await ssdp_responder.start()
 
     # Record start time for uptime calculation
     start_time = time.time()
@@ -551,7 +446,6 @@ async def main(shot_interval: float, hostname: str):
         pass
     finally:
         print("\nShutting down...")
-        ssdp_responder.stop()
         shot_task.cancel()
         status_task.cancel()
         # Await cancelled tasks to ensure proper cleanup
@@ -592,45 +486,28 @@ def parse_args():
         help=f"Interval between shots in seconds (default: {SHOT_INTERVAL_SECONDS})"
     )
     parser.add_argument(
-        "--hostname",
-        nargs="?",
-        const="__USE_MACHINE_HOSTNAME__",
-        default=None,
-        help="mDNS hostname. If flag provided without value, uses machine hostname. "
-             f"(default: {DEFAULT_HOSTNAME})"
-    )
-    parser.add_argument(
         "--nova-id",
         type=validate_nova_id,
         default=None,
         metavar="XXXX",
-        help="4-character alphanumeric Nova ID, replaces 'xsim' in default hostname "
-             "(e.g., --nova-id ab12 gives openlaunch-novaab12)"
+        help="4-character alphanumeric Nova ID used to build the serial "
+             "(e.g., --nova-id ab12 gives serial B0100AB12). Default serial: B0100SIM"
     )
     return parser.parse_args()
 
 
-def resolve_hostname(args) -> str:
-    """Resolve the hostname based on command line arguments."""
-    if args.hostname == "__USE_MACHINE_HOSTNAME__":
-        # --hostname flag with no value: use machine hostname
-        return socket.gethostname().split(".")[0]
-    elif args.hostname is not None:
-        # --hostname with explicit value
-        return args.hostname
-    elif args.nova_id is not None:
-        # --nova-id provided: replace 'xsim' with the ID
-        return f"openlaunch-nova{args.nova_id}"
-    else:
-        # Default hostname
-        return DEFAULT_HOSTNAME
+def resolve_serial(args) -> str:
+    """Resolve the serial number based on command line arguments."""
+    if args.nova_id is not None:
+        return f"B0100{args.nova_id.upper()}"
+    return SERIAL
 
 
 if __name__ == "__main__":
     args = parse_args()
-    hostname = resolve_hostname(args)
+    serial = resolve_serial(args)
     try:
-        asyncio.run(main(shot_interval=args.interval, hostname=hostname))
+        asyncio.run(main(shot_interval=args.interval, serial=serial))
     except KeyboardInterrupt:
         # Allow graceful exit on Ctrl+C without traceback
         pass

@@ -15,25 +15,21 @@ Both APIs are receive-only. Clients connect and receive shot data as it occurs.
 
 ## Discovery
 
-Nova advertises its services on the local network using two discovery protocols:
+Nova advertises its services on the local network using mDNS:
 
-| Protocol | OpenAPI Service | WebSocket Service |
-|----------|-----------------|-------------------|
-| mDNS | `_openapi-nova._tcp.local.` | `_openlaunch-ws._tcp.local.` |
-| SSDP | `urn:openlaunch:service:openapi:1` | `urn:openlaunch:service:websocket:1` |
-
-Use whichever discovery protocol works best for your platform. Both return the same host and port information.
+| Service | mDNS Type |
+|---------|-----------|
+| OpenAPI | `_openapi-nova._tcp.local.` |
+| WebSocket | `_openlaunch-ws._tcp.local.` |
 
 ## Examples
 
 Python examples for each combination of discovery protocol and API:
 
-| Example | Discovery | API | Dependencies |
-|---------|-----------|-----|--------------|
-| `openapi_mdns_client.py` | mDNS | OpenAPI (TCP) | `zeroconf` |
-| `openapi_ssdp_client.py` | SSDP | OpenAPI (TCP) | stdlib only |
-| `websocket_mdns_client.py` | mDNS | WebSocket | `zeroconf`, `websockets` |
-| `websocket_ssdp_client.py` | SSDP | WebSocket | `websockets` |
+| Example | API | Dependencies |
+|---------|-----|--------------|
+| `openapi_mdns_client.py` | OpenAPI (TCP) | `zeroconf` |
+| `websocket_mdns_client.py` | WebSocket | `zeroconf`, `websockets` |
 
 ### Running the examples
 
@@ -46,7 +42,7 @@ pip install zeroconf websockets
 Run any example:
 
 ```
-python examples/openapi_ssdp_client.py
+python examples/openapi_mdns_client.py
 ```
 
 The client will discover Nova on your network, connect, and print shot data as it arrives.

@@ -136,7 +136,7 @@ def main():
     host, port = discover_service()
 
     if host is None:
-        print("Service not found via mDNS. Try openapi_ssdp_client.py or connect directly to port 2921")
+        print("Service not found via mDNS. Try connecting directly to port 2921")
         return
 
     connect_and_listen(host, port)

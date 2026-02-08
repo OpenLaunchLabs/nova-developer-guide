@@ -116,7 +116,7 @@ def main():
     host, port = discover_service()
 
     if host is None:
-        print("Service not found via mDNS. Try websocket_client.py (SSDP discovery)")
+        print("Service not found via mDNS. Try connecting directly to port 2920")
         return
 
     asyncio.run(connect_and_listen(host, port))
