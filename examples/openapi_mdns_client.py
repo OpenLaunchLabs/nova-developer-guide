@@ -124,6 +124,7 @@ def connect_and_listen(host, port):
                 print(f"  VLA: {shot['BallData']['VLA']:.1f}°")
                 print(f"  HLA: {shot['BallData']['HLA']:.1f}°")
                 print(f"  Spin: {shot['BallData']['TotalSpin']:.0f} rpm")
+                print(f"  SpinAxis: {shot['BallData']['SpinAxis']:.1f}°")
                 print(f"  Raw: {obj_str}")
                 print()
     except KeyboardInterrupt:
