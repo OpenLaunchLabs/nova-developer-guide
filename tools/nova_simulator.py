@@ -51,11 +51,11 @@ class GolfShotGenerator:
 
         max_vla = 55 if ball_speed_mph < 80 else 30
         vla = random.uniform(-10, max_vla)  # Vertical launch angle (degrees)
-        hla = random.gauss(-8, 8)  # Horizontal launch angle (degrees)
+        hla = random.gauss(0, 8)  # Horizontal launch angle (degrees)
 
         max_spin = 13000 if ball_speed_mph < 100 else 5000
         total_spin = random.uniform(1000, max_spin)  # rpm
-        spin_axis = random.gauss(-30, 30)  # degrees
+        spin_axis = random.gauss(0, 15)  # degrees
 
         return {
             "shot_number": self.shot_number,
@@ -74,12 +74,20 @@ class GolfShotGenerator:
             # but I try to do so to make it easier for users to parse.
             json.dumps(
                 {
+                    "DeviceID": "OpenLaunch NOVA v1.0",
+                    "Units": "Yards",
                     "ShotNumber": shot["shot_number"],
+                    "APIversion": "1",
                     "BallData": {
                         "Speed": shot["ball_speed_mph"],
-                        "VLA": shot["vla"],
-                        "HLA": shot["hla"],
+                        "SpinAxis": shot["spin_axis"],
                         "TotalSpin": shot["total_spin"],
+                        "HLA": shot["hla"],
+                        "VLA": shot["vla"],
+                    },
+                    "ShotDataOptions": {
+                        "ContainsBallData": True,
+                        "ContainsClubData": False,
                     },
                 }
             )
@@ -91,6 +99,7 @@ class GolfShotGenerator:
         return json.dumps(
             {
                 "type": "shot",
+                "timestamp_ns": time.time_ns(),
                 "shot_number": shot["shot_number"],
                 "ball_speed_meters_per_second": shot["ball_speed_mps"],
                 "vertical_launch_angle_degrees": shot["vla"],
